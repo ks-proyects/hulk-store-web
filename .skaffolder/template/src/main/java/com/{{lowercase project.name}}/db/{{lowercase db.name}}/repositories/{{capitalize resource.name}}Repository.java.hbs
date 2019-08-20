@@ -1,0 +1,15 @@
+**** PROPERTIES SKAFFOLDER ****
+{
+    "forEachObj": "resource",
+    "overwrite": false,
+    "_partials": []
+}
+**** END PROPERTIES SKAFFOLDER ****
+package com.{{lowercase project.name}}.db.{{lowercase db.name}}.repositories;
+
+import com.{{lowercase project.name}}.db.{{lowercase db.name}}.repositories.base.{{capitalize resource.name}}BaseRepository;
+
+public interface {{capitalize resource.name}}Repository extends {{capitalize resource.name}}BaseRepository {
+
+    //OVERRIDE HERE YOUR CUSTOM REPOSITORY
+}

@@ -1,0 +1,123 @@
+**** PROPERTIES SKAFFOLDER ****
+{
+    "forEachObj": "resource",
+    "overwrite": true,
+    "_partials": []
+}
+**** END PROPERTIES SKAFFOLDER ****
+package com.{{#lowercase project.name}}{{/lowercase}}.db.{{#lowercase db.name}}{{/lowercase}}.service.base;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.stereotype.Service;
+
+{{#equal resource.name 'User'}}
+import com.{{lowercase project.name}}.db.{{lowercase db.name}}.service.RolesService;
+import com.{{lowercase project.name}}.db.{{lowercase db.name}}.repositories.RolesRepository;
+import com.{{lowercase project.name}}.db.{{lowercase db.name}}.entity.Roles;
+{{/equal}}
+
+import com.{{lowercase project.name}}.db.{{lowercase db.name}}.entity.{{capitalize resource._entity.name}};
+{{#each resource._relations}}{{#equal type "1:m"}}{{#equal _ent1.name ../resource/name}}
+import com.{{lowercase ../project.name}}.db.{{lowercase ../db.name}}.entity.{{capitalize _ent2.name}};
+{{/equal}}{{/equal}}{{#equal type "m:m"}}{{#equal _ent1.name ../resource/name}}
+import com.{{lowercase ../project.name}}.db.{{lowercase ../db.name}}.entity.{{capitalize _ent2.name}};
+{{/equal}}{{/equal}}{{/each}}
+import com.{{lowercase project.name}}.db.{{lowercase db.name}}.repositories.{{capitalize resource._entity.name}}Repository;
+
+@Service
+@Transactional
+public class {{capitalize resource.name}}BaseService {
+
+	
+	@Autowired
+	{{capitalize resource.name}}Repository {{camelcase resource.name}}Repository;
+	{{#equal resource.name 'User'}}
+	@Autowired
+	RolesRepository rolesRepository;
+	{{/equal}}
+	{{#equal resource.name 'User'}}
+	private static RolesService rolesService = new RolesService();
+
+	public User login(String username, String password) {
+		if ({{camelcase resource.name}}Repository.count() == 0) {
+			User newUser = new User();
+			newUser.setUsername("admin");
+			newUser.addRoles(new Roles("ADMIN", newUser));
+			newUser.setPassword("62f264d7ad826f02a8af714c0a54b197935b717656b80461686d450f7b3abde4c553541515de2052b9af70f710f0cd8a1a2d3f4d60aa72608d71a63a9a93c0f5");
+			rolesRepository.save(newUser.getRoles().get(0));
+			{{camelcase resource.name}}Repository.save(newUser);
+		}
+		return {{camelcase resource.name}}Repository.findByUsernameAndPassword(username, password);
+	}
+	{{/equal}}
+
+
+{{#notNull resource._entity}}
+    // CRUD METHODS
+    
+    {{#each resource._services}}
+    	{{#equal crudAction 'list'}}
+    	
+    // CRUD - GET LIST
+    	
+	public List<{{capitalize ../resource.name}}> getAll() {
+		List<{{capitalize ../resource.name}}> list = new ArrayList<>();
+		{{camelcase ../resource.name}}Repository.findAll().forEach(list::add);
+		return list;
+	}
+	
+    	{{/equal}}
+    	{{#equal crudAction 'get'}}
+	// CRUD - GET ONE
+    	
+	public {{capitalize ../resource.name}} getOne(Long id) {
+		return {{camelcase ../resource.name}}Repository.findOne(id);
+	}
+
+    	{{/equal}}
+    	{{#equal crudAction 'delete'}}
+	// CRUD - REMOVE
+    
+	public void delete(Long id) {
+		{{camelcase ../resource.name}}Repository.delete(id);
+	}
+
+    	{{/equal}}
+    	{{#equal crudAction 'create'}}
+    // CRUD - CREATE
+    
+	public {{capitalize ../resource.name}} insert({{capitalize ../resource.name}} {{camelcase ../resource.name}}) {
+		return {{camelcase ../resource.name}}Repository.save({{camelcase ../resource.name}});
+	}
+	
+    {{/equal}}
+	{{#startWith crudAction 'findBy'}}
+    {{#each ../resource._relations}}{{#equal type "1:m"}}{{#equal _ent1.name ../../resource/name}}
+    {{#equalFindBy name ../crudAction}}
+    // CRUD - FIND BY {{capitalize name}}
+
+    public List<{{capitalize _ent1.name}}> findBy{{capitalize name}}({{capitalize _ent2.name}} {{camelcase _ent2.name}}) {
+		return {{camelcase _ent1.name}}Repository.findBy{{capitalize name}}({{camelcase _ent2.name}});
+	}
+	{{/equalFindBy}}
+    {{/equal}}{{/equal}}{{#equal type "m:m"}}{{#equal _ent1.name ../../resource/name}}
+    {{#equalFindBy name ../crudAction}}
+    public List<{{capitalize _ent1.name}}> findBy{{capitalize name}}({{capitalize _ent2.name}} {{camelcase _ent2.name}}){
+		return {{camelcase _ent1.name}}Repository.findBy{{capitalize name}}({{camelcase _ent2.name}});
+	}
+	{{/equalFindBy}}
+    {{/equal}}{{/equal}}{{/each}}
+    {{#findByNotRelation ../resource crudAction}}
+    public List<{{capitalize ../resource._entity.name}}> findBy{{subStrCap name 6 }}(String {{subStr name 6 }}){
+		return {{camelcase ../resource._entity.name}}Repository.findBy{{subStrCap name 6 }}({{camelcase ../resource._entity.name}});
+	}
+    {{/findByNotRelation}}
+    {{/startWith}}
+	{{/each}}
+	{{/notNull}}
+
+}

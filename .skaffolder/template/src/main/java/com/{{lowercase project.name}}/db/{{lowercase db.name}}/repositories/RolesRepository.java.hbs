@@ -1,0 +1,19 @@
+**** PROPERTIES SKAFFOLDER ****
+{
+    "forEachObj": "db",
+    "_partials": []
+}
+**** END PROPERTIES SKAFFOLDER ****
+package com.{{lowercase project.name}}.db.{{lowercase db.name}}.repositories;
+
+import com.{{lowercase project.name}}.db.{{lowercase db.name}}.entity.Roles;
+import com.{{lowercase project.name}}.db.{{lowercase db.name}}.entity.User;
+import org.springframework.data.repository.CrudRepository;
+import org.springframework.stereotype.Repository;
+import java.util.List;
+
+@Repository
+public interface RolesRepository extends CrudRepository<Roles, Long> {
+    Roles findByRoleAndUser(String role, User user);
+    List<Roles> findByUser(User user);
+}

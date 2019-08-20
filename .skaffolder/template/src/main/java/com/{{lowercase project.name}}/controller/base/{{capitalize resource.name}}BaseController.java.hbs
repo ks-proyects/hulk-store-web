@@ -1,0 +1,335 @@
+**** PROPERTIES SKAFFOLDER ****
+{
+    "forEachObj": "resource",
+    "overwrite": true,
+    "_partials": []
+}
+**** END PROPERTIES SKAFFOLDER ****
+package com.{{#lowercase project.name}}{{/lowercase}}.controller.base;
+
+import java.util.List;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.http.ResponseEntity;
+import org.modelmapper.ModelMapper;
+import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
+import org.springframework.security.access.annotation.Secured;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.{{lowercase project.name}}.db.{{lowercase db.name}}.service.{{capitalize resource.name}}Service;
+import com.{{lowercase project.name}}.db.{{lowercase db.name}}.entity.{{capitalize resource._entity.name}};
+import com.{{lowercase project.name}}.db.{{lowercase db.name}}.dtos.{{capitalize resource._entity.name}}Dto;
+{{#equal resource.name 'User'}}
+import com.{{lowercase project.name}}.db.{{lowercase db.name}}.entity.Roles;
+{{/equal}}
+{{#each resource._relations}}{{#equal type "1:m"}}{{#equal _ent1.name ../resource/name}}
+import com.{{lowercase ../project.name}}.db.{{lowercase ../db.name}}.entity.{{capitalize _ent2.name}};
+{{/equal}}{{/equal}}{{#equal type "m:m"}}{{#equal _ent1.name ../resource/name}}
+import com.{{lowercase ../project.name}}.db.{{lowercase ../db.name}}.entity.{{capitalize _ent2.name}};
+{{/equal}}{{/equal}}{{/each}}
+//IMPORT RELATIONS
+{{#each resource._relations}}{{#equal type "1:m"}}{{#equal _ent1.name ../resource/name}}
+import com.{{lowercase ../project.name}}.db.{{lowercase ../db.name}}.service.{{capitalize _ent2.name}}Service;
+{{/equal}}{{#notEqual _ent1.name ../resource/name}}
+import com.{{lowercase ../project.name}}.db.{{lowercase ../db.name}}.service.{{capitalize _ent1.name}}Service;
+{{/notEqual}}
+{{/equal}}{{#equal type "m:m"}}{{#equal _ent1.name ../resource/name}}
+import com.{{lowercase ../project.name}}.db.{{lowercase ../db.name}}.service.{{capitalize _ent2.name}}Service;
+{{/equal}}{{#notEqual _ent1.name ../resource/name}}
+import com.{{lowercase ../project.name}}.db.{{lowercase ../db.name}}.service.{{capitalize _ent1.name}}Service;
+{{/notEqual}}{{/equal}}{{/each}}
+{{#equal resource.name 'User'}}
+import com.{{lowercase project.name}}.db.{{lowercase db.name}}.service.RolesService;
+{{/equal}}
+
+public class {{capitalize resource.name}}BaseController {
+    
+    @Autowired
+	{{capitalize resource.name}}Service {{camelcase resource.name}}Service;
+
+	{{#equal resource.name 'User'}}
+	@Autowired
+	RolesService rolesService;
+	{{/equal}}
+	{{#each resource._relations}}{{#equal type "1:m"}}{{#equal _ent1.name ../resource/name}}
+	@Autowired
+	{{capitalize _ent2.name}}Service {{camelcase _ent2.name}}Service;
+	{{/equal}}{{#notEqual _ent1.name ../resource/name}}
+	@Autowired
+	{{capitalize _ent1.name}}Service {{camelcase _ent1.name}}Service;
+	{{/notEqual}}{{/equal}}{{#equal type "m:m"}}{{#equal _ent1.name ../resource/name}}
+	@Autowired
+	{{capitalize _ent2.name}}Service {{camelcase _ent2.name}}Service;
+	{{/equal}}{{#notEqual _ent1.name ../resource/name}}
+	@Autowired
+	{{capitalize _ent1.name}}Service {{camelcase _ent1.name}}Service;
+	{{/notEqual}}{{/equal}}{{/each}}
+
+	@Autowired
+	private ModelMapper modelMapper;
+
+
+{{#notNull resource._entity}}
+
+//CRUD METHODS
+
+{{#each resource._services}}
+	{{#equal crudAction 'list'}}
+	
+    //CRUD - GET LIST
+    @Secured({ {{#isEmptyArray _roles}}"ROLE_PRIVATE_USER"{{/isEmptyArray}}{{#notNull _roles}}{{joinRoleObj2 _roles}}{{/notNull}} })
+	@GetMapping("{{../resource.url}}")
+	public ResponseEntity<List<{{capitalize ../resource._entity.name}}Dto>> getList() {
+		List<{{capitalize ../resource._entity.name}}> list = {{camelcase ../resource.name}}Service.getAll();
+		List<{{capitalize ../resource._entity.name}}Dto> listDto = list.stream()
+				.map({{camelcase ../resource.name}} -> convertToDto({{camelcase ../resource.name}}))
+				.collect(Collectors.toList());
+		return ResponseEntity.ok().body(listDto);
+	}
+
+	{{/equal}}
+	{{#equal crudAction 'get'}}
+	
+    //CRUD - GET ONE
+    @Secured({ {{#isEmptyArray _roles}}"ROLE_PRIVATE_USER"{{/isEmptyArray}}{{#notNull _roles}}{{joinRoleObj2 _roles}}{{/notNull}} })
+	@GetMapping("{{../resource.url}}{{url}}")
+	public ResponseEntity<{{capitalize ../resource._entity.name}}Dto> get(@PathVariable("id") Long id) {
+		{{capitalize ../resource._entity.name}} {{camelcase ../resource._entity.name}}Selected = {{camelcase ../resource._entity.name}}Service.getOne(id);
+		return ResponseEntity.ok().body(convertToDto({{camelcase ../resource._entity.name}}Selected));
+	}
+	
+	{{/equal}}
+	{{#equal crudAction 'update'}}
+
+    //CRUD - EDIT
+    @Secured({ {{#isEmptyArray _roles}}"ROLE_PRIVATE_USER"{{/isEmptyArray}}{{#notNull _roles}}{{joinRoleObj2 _roles}}{{/notNull}} })
+	@PostMapping("{{../resource.url}}{{url}}")
+	public ResponseEntity<{{capitalize ../resource._entity.name}}Dto> update(@RequestBody {{capitalize ../resource._entity.name}} obj, @PathVariable("id") Long id) {
+		{{#equal ../resource.name 'User'}}
+		if(obj.getRoles() != null && !obj.getRoles().isEmpty()) {
+			List<Roles> rolesOld = rolesService.findByUser(obj);
+				if (rolesOld.size() > 0) {
+					List<String> rolesToRemove = rolesOld.stream()
+						.map(Roles::getRole)
+						.filter(el -> !obj.hasRole(el))
+						.collect(Collectors.toList());
+				if(rolesToRemove.size() > 0) {
+					rolesOld.forEach(role -> {
+						if(rolesToRemove.contains(role.getRole()))
+								rolesService.delete(role.get_id());
+					});
+				}	
+			}
+			obj.getRoles().forEach(role -> {
+				role = rolesService.findByRoleAndUser(role.getRole(), obj) != null ? rolesService.findByRoleAndUser(role.getRole(), obj) : role;
+				role.setUser(obj);
+				rolesService.insert(role);
+			});
+		}
+		{{/equal}}
+	    {{#each ../resource._relations}}{{#equal type "1:m"}}{{#equal _ent1.name ../../resource/name}}
+		//external relation {{name}}
+		if (obj.get{{capitalize name}}() != null) {
+			if (obj.get{{capitalize name}}().get_id() == null)
+				{{camelcase _ent2.name}}Service.insert(obj.get{{capitalize name}}());
+			else
+				{{camelcase _ent2.name}}Service.insert({{camelcase _ent2.name}}Service.getOne(obj.get{{capitalize name}}().get_id()));
+		}
+		{{/equal}}{{#notEqual _ent1.name ../../resource/name}}
+		//external relation {{_ent1.name}}
+		if (obj.get{{capitalize _ent1.name}}() != null)
+			obj.get{{capitalize _ent1.name}}().forEach({{camelcase _ent1.name}} -> {{camelcase _ent1.name}}Service.insert({{camelcase _ent1.name}}));
+		{{/notEqual}}
+		{{/equal}}{{#equal type "m:m"}}{{#equal _ent1.name ../../resource/name}}
+		//external relation {{name}}
+		if (obj.get{{capitalize name}}() != null) {
+			obj.get{{capitalize name}}().forEach({{camelcase _ent2.name}} -> {
+				{{camelcase _ent2.name}} = {{camelcase _ent2.name}}Service.getOne({{camelcase _ent2.name}}.get_id());
+				{{camelcase _ent2.name}}.add{{capitalize ../../resource._entity.name}}(obj);
+				{{camelcase _ent2.name}}Service.insert({{camelcase _ent2.name}});
+			});
+		}
+		{{/equal}}{{#notEqual _ent1.name ../../resource/name}}
+		//external relation {{_ent1.name}}
+		if (obj.get{{capitalize _ent1.name}}() != null) {
+			obj.get{{capitalize _ent1.name}}().forEach({{camelcase _ent1.name}} -> {
+				{{camelcase _ent1.name}}.add{{capitalize name}}(obj);
+				{{camelcase _ent1.name}}Service.insert({{camelcase _ent1.name}});
+			});
+		}
+		{{/notEqual}}{{/equal}}{{/each}}
+		
+		return ResponseEntity.ok().body(convertToDto({{camelcase ../resource._entity.name}}Service.insert(obj)));
+	}
+	
+	{{/equal}}
+	{{#equal crudAction 'delete'}}
+	
+    //CRUD - REMOVE
+    @Secured({ {{#isEmptyArray _roles}}"ROLE_PRIVATE_USER"{{/isEmptyArray}}{{#notNull _roles}}{{joinRoleObj2 _roles}}{{/notNull}} })
+	@DeleteMapping("{{../resource.url}}{{url}}")
+	public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
+		{{capitalize ../resource.name}} {{camelcase ../resource.name}}Selected = {{camelcase ../resource.name}}Service.getOne(id);
+		{{#each ../resource._relations}}{{#equal type "1:m"}}{{#equal _ent1.name ../../resource/name}}
+		{{/equal}}{{#notEqual _ent1.name ../../resource/name}}
+		//external relation {{_ent1.name}}
+		if ({{camelcase ../../resource.name}}Selected.get{{capitalize _ent1.name}}() != null && !{{camelcase ../../resource.name}}Selected.get{{capitalize _ent1.name}}().isEmpty()) {
+			{{camelcase ../../resource.name}}Selected.get{{capitalize _ent1.name}}().forEach({{camelcase _ent1.name}} -> {{camelcase _ent1.name}}Service.delete({{camelcase _ent1.name}}.get_id()));
+		}
+		{{/notEqual}}{{/equal}}{{#equal type "m:m"}}{{#equal _ent1.name ../../resource/name}}
+		//external relation {{name}}
+		if ({{camelcase ../../resource.name}}Selected.get{{capitalize name}}() != null) {
+			{{camelcase ../../resource.name}}Selected.get{{capitalize name}}().forEach({{camelcase _ent2.name}} -> {
+				{{camelcase _ent2.name}}.get{{capitalize ../../resource.name}}().removeIf({{camelcase ../../resource.name}} -> {{camelcase ../../resource.name}}.get_id() == {{camelcase ../../resource.name}}Selected.get_id());
+				{{camelcase _ent2.name}}Service.insert({{camelcase _ent2.name}});
+			});
+		}
+		{{/equal}}{{#notEqual _ent1.name ../../resource/name}}
+		//external relation {{_ent1.name}}
+		if ({{camelcase ../../resource.name}}Selected.get{{capitalize _ent1.name}}() != null) {
+			{{camelcase ../../resource.name}}Selected.get{{capitalize _ent1.name}}().forEach({{camelcase _ent1.name}} -> {
+				{{camelcase _ent1.name}}.get{{capitalize name}}().removeIf({{camelcase ../../resource.name}} -> {{camelcase ../../resource.name}}.get_id() == {{camelcase ../../resource.name}}Selected.get_id());
+				{{camelcase _ent1.name}}Service.insert({{camelcase _ent1.name}});
+			});
+		}
+		{{/notEqual}}{{/equal}}{{/each}}
+		{{camelcase ../resource.name}}Service.delete(id);
+		return ResponseEntity.ok().build();
+	}
+	
+	{{/equal}}
+	{{#equal crudAction 'create'}}
+
+    //CRUD - CREATE
+    @Secured({ {{#isEmptyArray _roles}}"ROLE_PRIVATE_USER"{{/isEmptyArray}}{{#notNull _roles}}{{joinRoleObj2 _roles}}{{/notNull}} })
+	@PostMapping("{{../resource.url}}")
+	public ResponseEntity<{{capitalize ../resource._entity.name}}Dto> insert(@RequestBody {{capitalize ../resource._entity.name}} obj) {
+		{{#equal ../resource.name 'User'}}
+		if(obj.getRoles() != null && !obj.getRoles().isEmpty()) {
+			obj.getRoles().forEach(role -> {
+				role = rolesService.findByRoleAndUser(role.getRole(), obj) != null ? rolesService.findByRoleAndUser(role.getRole(), obj) : role;
+				role.setUser(obj);
+				rolesService.insert(role);
+			});
+		}
+		{{/equal}}
+				{{#each ../resource._relations}}{{#equal type "1:m"}}{{#equal _ent1.name ../../resource/name}}
+		//external relation {{name}}
+		if (obj.get{{capitalize name}}() != null) {
+			if (obj.get{{capitalize name}}().get_id() == null)
+				{{camelcase _ent2.name}}Service.insert(obj.get{{capitalize name}}());
+			else
+				{{camelcase _ent2.name}}Service.insert({{camelcase _ent2.name}}Service.getOne(obj.get{{capitalize name}}().get_id()));
+		}
+		{{/equal}}{{#notEqual _ent1.name ../../resource/name}}
+		//external relation {{_ent1.name}}
+		if (obj.get{{capitalize _ent1.name}}() != null && !obj.get{{capitalize _ent1.name}}().isEmpty())
+			obj.get{{capitalize _ent1.name}}().forEach({{camelcase _ent1.name}} -> {{camelcase _ent1.name}}Service.insert({{camelcase _ent1.name}}));
+		{{/notEqual}}
+		{{/equal}}{{#equal type "m:m"}}{{#equal _ent1.name ../../resource/name}}
+		//external relation {{name}}
+		if (obj.get{{capitalize name}}() != null && !obj.get{{capitalize name}}().isEmpty()) {
+			obj.get{{capitalize name}}().forEach({{camelcase _ent2.name}} -> {
+				{{camelcase _ent2.name}} = {{camelcase _ent2.name}}Service.getOne({{camelcase _ent2.name}}.get_id());
+				{{camelcase _ent2.name}}.add{{capitalize ../../resource._entity.name}}(obj);
+				{{camelcase _ent2.name}}Service.insert({{camelcase _ent2.name}});
+			});
+		}
+		{{/equal}}{{#notEqual _ent1.name ../../resource/name}}
+		//external relation {{_ent1.name}}
+		if (obj.get{{capitalize _ent1.name}}() != null) {
+			obj.get{{capitalize _ent1.name}}().forEach({{camelcase _ent1.name}} -> {
+				{{camelcase _ent1.name}}.add{{capitalize name}}(obj);
+				{{camelcase _ent1.name}}Service.insert({{camelcase _ent1.name}});
+			});
+		}
+		{{/notEqual}}{{/equal}}{{/each}}
+		
+		return ResponseEntity.ok().body(convertToDto({{camelcase ../resource._entity.name}}Service.insert(obj)));
+	}
+
+	{{/equal}}
+	{{#startWith crudAction 'findBy'}}
+    //CRUD - FIND BY {{subStrCap name 6 }}
+    {{#equal ../extra.security true}}@Secured({ {{#isEmptyArray _roles}}"ROLE_PRIVATE_USER"{{/isEmptyArray}}{{#notNull _roles}}{{joinRoleObj2 _roles}}{{/notNull}} }){{/equal}}
+	@GetMapping("{{../resource.url}}{{capitalize url}}")
+	public ResponseEntity<List<{{capitalize ../resource._entity.name}}Dto>> findBy{{subStrCap name 6 }}(@PathVariable("key") Long id) {
+		{{#each ../resource._relations}}{{#equal type "1:m"}}{{#equal _ent1.name ../../resource/name}}
+		{{#equalFindBy name ../crudAction}}
+		{{capitalize _ent2.name}} {{camelcase _ent2.name}} = {{camelcase _ent2.name}}Service.getOne(id);
+		List<{{capitalize _ent1.name}}> {{camelcase _ent1.name}}s = {{camelcase _ent1.name}}Service.findBy{{capitalize name}}({{camelcase _ent2.name}});
+		List<{{capitalize _ent1.name}}Dto> {{camelcase _ent1.name}}sDto = {{camelcase _ent1.name}}s.stream()
+				.map({{camelcase _ent1.name}} -> convertToDto({{camelcase _ent1.name}}))
+				.collect(Collectors.toList());
+		{{/equalFindBy}}
+		{{/equal}}{{/equal}}{{#equal type "m:m"}}{{#equal _ent1.name ../../resource/name}}
+		{{/equal}}{{/equal}}{{/each}}
+		{{#each ../resource._relations}}{{#equal type "m:m"}}{{#equal _ent1.name ../../resource/name}}
+		{{#equalFindBy name ../crudAction}}
+		{{capitalize _ent2.name}} {{camelcase _ent2.name}} = {{camelcase _ent2.name}}Service.getOne(id);
+		List<{{capitalize _ent1.name}}> {{camelcase _ent1.name}}s = {{camelcase _ent1.name}}Service.findBy{{capitalize name}}({{camelcase _ent2.name}});
+		List<{{capitalize _ent1.name}}Dto> {{camelcase _ent1.name}}sDto = {{camelcase _ent1.name}}s.stream()
+				.map({{camelcase _ent1.name}} -> convertToDto({{camelcase _ent1.name}}))
+				.collect(Collectors.toList());
+		{{/equalFindBy}}
+		{{/equal}}{{/equal}}{{/each}}
+		{{#findByNotRelation ../resource crudAction}}
+		List<{{capitalize ../resource._entity.name}}> {{camelcase ../resource._entity.name}}s = {{camelcase ../resource._entity.name}}.findBy{{subStrCap name 6 }}({{subStr name 6 }});
+		List<{{capitalize ../resource._entity.name}}Dto> {{camelcase ../resource._entity.name}}sDto = {{camelcase ../resource._entity.name}}s.stream()
+				.map({{camelcase ../resource._entity.name}} => convertToDto({{camelcase ../resource._entity.name}}))
+				.collect(Collectors.toList());
+		{{/findByNotRelation}}
+
+		return ResponseEntity.ok().body({{camelcase ../resource._entity.name}}sDto);
+	}
+	{{/startWith}}
+{{/each}}{{/notNull}}
+{{#equal resource.name 'User'}}
+//CHANGE PASSWORD
+	@Secured({"ROLE_ADMIN"})
+	@PostMapping("/{id}/changePassword")
+	public Map<String, String> changePassword(@PathVariable("id") Long id,@RequestBody Map<String, String> passwords) throws Exception {
+		User userUpdated = userService.insert(userService.getOne(id));
+		if(userUpdated != null)
+			return new HashMap<String,String>();
+		else
+			return null;
+	}
+{{/equal}}
+
+/*
+ * CUSTOM SERVICES
+ * 
+ *	These services will be overwritten and implemented in  {{name}}Custom.js
+ */
+
+{{#each resource._services}}
+{{#equal crudAction null}}
+
+    /*
+    Name: {{name}}
+    Description: {{description}}
+    Params: {{#each _params}}
+    	{{type}} {{name}} - {{description}}{{/each}}
+    
+    {{#notNull _roles}}@Secured({"ROLE_PRIVATE_USER"{{joinRoleObj _roles}} }){{/notNull}}
+    @RequestMapping(value = "{{../resource.url}}{{url}}", method = RequestMethod.{{method}}, headers = "Accept=application/json")
+    public Object {{name}}() {
+		return new HashMap<String, String>();
+    }
+    */
+    		
+	{{/equal}}
+{{/each}}
+
+	private {{capitalize resource._entity.name}}Dto convertToDto({{capitalize resource._entity.name}} {{camelcase resource._entity.name}}) {
+		{{capitalize resource._entity.name}}Dto {{camelcase resource._entity.name}}Dto = modelMapper.map({{camelcase resource._entity.name}}, {{capitalize resource._entity.name}}Dto.class);
+		return {{camelcase resource._entity.name}}Dto;
+	}
+}
