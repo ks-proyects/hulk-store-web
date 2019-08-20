@@ -5,12 +5,13 @@
 export const environment = {
   production: false,
   firebase: {
-    apiKey: 'my-api-key',
-    authDomain: 'my-domain.firebaseapp.com',
-    databaseURL: 'https://my-domain.firebaseio.com',
-    projectId: 'my-domain',
-    storageBucket: 'my-domain.appspot.com',
-    messagingSenderId: '123456789012'
+    apiKey: "AIzaSyC6rTRgWHBzgI5hrH6DjBYSBDJSwqH0xQE",
+    authDomain: "hulkstoreweb.firebaseapp.com",
+    databaseURL: "https://hulkstoreweb.firebaseio.com",
+    projectId: "hulkstoreweb",
+    storageBucket: "",
+    messagingSenderId: "977340473375",
+    appId: "1:977340473375:web:f0e90e13ecf74e19"
   }
 };
 
